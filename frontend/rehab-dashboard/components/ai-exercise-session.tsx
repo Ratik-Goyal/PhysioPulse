@@ -43,7 +43,13 @@ export function AIExerciseSession({ exerciseType, onComplete }: AIExerciseSessio
 
   const startWebcam = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: 'user'
+        }
+      })
       if (webcamRef.current) {
         webcamRef.current.srcObject = stream
         setWebcamEnabled(true)
@@ -172,7 +178,8 @@ export function AIExerciseSession({ exerciseType, onComplete }: AIExerciseSessio
             ref={webcamRef} 
             autoPlay 
             muted 
-            className="w-full h-64 object-cover rounded-lg bg-muted"
+            className="w-full h-96 object-cover rounded-lg bg-muted"
+            style={{ minHeight: '480px' }}
           />
           {!webcamEnabled && (
             <div className="absolute inset-0 flex items-center justify-center bg-muted rounded-lg">

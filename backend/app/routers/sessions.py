@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.models.session import SessionCreate, SessionResponse, FrameData, SessionSummary
 from app.core.auth import get_current_user
 from app.services.database_service import db_service
-from app.services.gemini_service import gemini_service
+from app.services.ai_service import ai_service
 from typing import Dict
 
 router = APIRouter(prefix="/session", tags=["sessions"])
@@ -35,9 +35,12 @@ async def submit_frame(session_id: str, frame_data: FrameData, current_user: dic
         
         # Generate AI feedback
         exercise_type = session_summary["session"]["exercise_type"]
-        feedback = gemini_service.generate_exercise_feedback(
-            exercise_type, frame_data, session_summary["frames"]
-        )
+        pose_data = {
+            "landmarks": frame_data.landmarks if hasattr(frame_data, 'landmarks') else [],
+            "rep_count": frame_data.rep_count,
+            "stage": frame_data.stage
+        }
+        feedback = await ai_service.analyze_exercise_form(pose_data, exercise_type)
         
         # Save feedback
         db_service.save_feedback(session_id, feedback)
