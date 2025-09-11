@@ -4,12 +4,13 @@ An intelligent telerehabilitation platform that combines AI-powered exercise ana
 
 ## 🚀 Features
 
-- **AI Exercise Analysis** - Real-time pose detection and form correction
+- **Real AI Exercise Analysis** - Live pose detection with Google Gemini AI feedback
+- **HD Camera Integration** - 1280x720 resolution for accurate full-body tracking
 - **Smart Patient Matching** - Automated doctor assignment based on symptoms
 - **Comprehensive Health Assessment** - 4-step symptom evaluation
 - **Progress Tracking** - Detailed analytics and session history
 - **Secure Authentication** - Supabase-powered user management
-- **Real-time Feedback** - Google Gemini AI provides personalized guidance
+- **Real-time AI Coaching** - Instant form correction and exercise guidance
 
 ## 🛠️ Tech Stack
 
@@ -76,7 +77,12 @@ Create `frontend/rehab-dashboard/.env.local`:
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
-### 4. Start Application
+### 4. Install AI Dependencies
+```bash
+install-ai-deps.bat
+```
+
+### 5. Start Application
 ```bash
 # Quick start
 start.bat
@@ -143,10 +149,12 @@ physio-pulse/
 
 ## 🤖 AI Features
 
-- **Pose Detection** - MediaPipe integration for exercise tracking
-- **Form Analysis** - Real-time feedback on exercise technique
-- **Progress Analytics** - AI-powered insights and recommendations
-- **Personalized Guidance** - Gemini AI provides custom advice
+- **Real-time Pose Detection** - MediaPipe CDN integration with HD camera support
+- **Joint Angle Analysis** - Calculates precise body mechanics from pose landmarks
+- **Gemini AI Coaching** - Google's AI analyzes form and provides instant feedback
+- **Exercise Recognition** - Automatically detects squats, push-ups, and other exercises
+- **Progress Analytics** - AI-powered insights and personalized recommendations
+- **Adaptive Feedback** - Learns from your movement patterns for better guidance
 
 ## 🔒 Security
 
