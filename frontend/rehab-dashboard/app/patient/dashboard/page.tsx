@@ -242,8 +242,8 @@ export default function PatientDashboard() {
 
               {/* AI Exercise Session */}
               {showExerciseSession ? (
-                <AIExerciseSession 
-                  exerciseType="squat"
+                <AIExerciseSession
+                  exerciseType="shoulder_raise"
                   onComplete={(sessionData) => {
                     console.log('Session completed:', sessionData)
                     setShowExerciseSession(false)

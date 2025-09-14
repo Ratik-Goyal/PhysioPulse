@@ -175,6 +175,10 @@ export class MediaPipeService {
         return this.detectSquatStage(angles)
       case 'pushup':
         return this.detectPushupStage(angles)
+      case 'shoulder_raise':
+        return this.detectShoulderRaiseStage(angles)
+      case 'knee_bend':
+        return this.detectSquatStage(angles)
       default:
         return { stage: 'unknown', repCount: 0 }
     }
@@ -194,7 +198,7 @@ export class MediaPipeService {
 
   private detectPushupStage(angles: any): { stage: string, repCount: number } {
     const avgElbowAngle = (angles.leftElbow + angles.rightElbow) / 2
-    
+
     if (avgElbowAngle > 160) {
       return { stage: 'up', repCount: 0 }
     } else if (avgElbowAngle < 90) {
@@ -202,6 +206,26 @@ export class MediaPipeService {
     } else {
       return { stage: 'transition', repCount: 0 }
     }
+  }
+
+  private detectShoulderRaiseStage(angles: any): { stage: string, repCount: number } {
+    // Use the larger of left/right shoulder angles to allow either arm
+    const left = angles.leftShoulder ?? 0
+    const right = angles.rightShoulder ?? 0
+    const shoulderAngle = Math.max(left, right)
+
+    // Define thresholds
+    const upThreshold = 85 // ~90° counts as raised
+    const downThreshold = 35 // relaxed arm by side
+
+    if (shoulderAngle >= upThreshold) {
+      // Top position reached – count as potential rep
+      return { stage: 'up', repCount: 1 }
+    }
+    if (shoulderAngle <= downThreshold) {
+      return { stage: 'down', repCount: 0 }
+    }
+    return { stage: 'transition', repCount: 0 }
   }
 }
 

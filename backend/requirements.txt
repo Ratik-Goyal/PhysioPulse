@@ -6,3 +6,9 @@ python-multipart
 pydantic
 pydantic-settings
 python-dotenv
+email-validator
+opencv-python
+numpy
+pillow
+python-jose[cryptography]
+passlib[bcrypt]

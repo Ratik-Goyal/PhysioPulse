@@ -30,7 +30,7 @@ class ApiClient {
     const url = `${this.baseURL}${endpoint}`
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...(options.headers || {}),
     }
 
     const token = this.getToken()
@@ -38,21 +38,64 @@ class ApiClient {
       headers.Authorization = `Bearer ${token}`
     }
 
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    })
+    // Retry fetch on network errors (e.g. "Failed to fetch")
+    const maxRetries = 3
+    let attempt = 0
+    let response: Response | null = null
+    while (attempt < maxRetries) {
+      try {
+        response = await fetch(url, {
+          ...options,
+          headers,
+        })
+        break
+      } catch (err: any) {
+        attempt += 1
+        console.warn(`Network request failed (attempt ${attempt}):`, err)
+        if (attempt >= maxRetries) {
+          throw new Error(`Network Error: Failed to reach ${url}. Please ensure the backend server is running and reachable.`)
+        }
+        // exponential backoff
+        const backoff = 200 * Math.pow(2, attempt)
+        await new Promise(res => setTimeout(res, backoff))
+      }
+    }
+
+    if (!response) {
+      throw new Error(`Network Error: No response from ${url}`)
+    }
+
+    // Read response body safely once. Some environments can throw if body is already consumed.
+    let bodyText = ''
+    try {
+      bodyText = await response.text()
+    } catch (err) {
+      // If reading fails, leave bodyText empty and continue
+      console.warn('Failed to read response body text:', err)
+      bodyText = ''
+    }
 
     if (!response.ok) {
-      const errorData = await response.text()
-      throw new Error(`API Error ${response.status}: ${errorData}`)
+      const parsedError = (() => {
+        try {
+          const ct = response.headers.get('content-type') || ''
+          if (ct.includes('application/json') && bodyText) return JSON.parse(bodyText)
+        } catch (e) { /* ignore parse errors */ }
+        return bodyText || `Status ${response.status}`
+      })()
+      throw new Error(`API Error ${response.status}: ${typeof parsedError === 'string' ? parsedError : JSON.stringify(parsedError)}`)
     }
 
-    const contentType = response.headers.get('content-type')
-    if (contentType && contentType.includes('application/json')) {
-      return response.json()
+    const contentType = response.headers.get('content-type') || ''
+    if (!bodyText) return null
+    if (contentType.includes('application/json')) {
+      try {
+        return JSON.parse(bodyText)
+      } catch (e) {
+        return bodyText
+      }
     }
-    return response.text()
+    return bodyText
   }
 
   // Auth endpoints
