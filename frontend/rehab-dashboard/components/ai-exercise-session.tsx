@@ -10,11 +10,38 @@ import { apiClient } from "@/lib/api"
 import { mediaPipeService } from "@/lib/mediapipe"
 
 interface AIExerciseSessionProps {
-  exerciseType: 'squat' | 'pushup' | 'shoulder_raise' | 'knee_bend'
+  exerciseType:
+    | 'squat'
+    | 'pushup'
+    | 'shoulder_raise'
+    | 'shoulder_flexion'
+    | 'shoulder_abduction'
+    | 'knee_bend'
+    | 'neck_rotation'
+    | 'neck_rotation_left'
+    | 'neck_rotation_right'
+    | 'neck_flexion'
+    | 'neck_extension'
+    | 'neck_lateral_left'
+    | 'neck_lateral_right'
+    | 'wrist_flexion'
+    | 'wrist_extension'
+    | 'finger_thumb_opposition'
+    | 'finger_mp_flexion'
+    | 'finger_mp_extension'
+    | 'finger_ip_flexion'
+    | 'hip_flexion'
+    | 'hip_abduction'
+    | 'hip_adduction'
+    | 'elbow_flexion'
+    | 'elbow_extension'
+    | 'knee_flexion'
+    | 'knee_extension'
   onComplete: (sessionData: any) => void
+  targetSide?: 'auto' | 'left' | 'right'
 }
 
-export function AIExerciseSession({ exerciseType, onComplete }: AIExerciseSessionProps) {
+export function AIExerciseSession({ exerciseType, onComplete, targetSide = 'auto' }: AIExerciseSessionProps) {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [isActive, setIsActive] = useState(false)
   const [webcamEnabled, setWebcamEnabled] = useState(false)
@@ -31,6 +58,9 @@ export function AIExerciseSession({ exerciseType, onComplete }: AIExerciseSessio
   const [leftVis, setLeftVis] = useState<number | null>(null)
   const [rightVis, setRightVis] = useState<number | null>(null)
   const [chosenSideState, setChosenSideState] = useState<'left' | 'right' | null>(null)
+  const [headYaw, setHeadYaw] = useState<number | null>(null)
+  const [headPitch, setHeadPitch] = useState<number | null>(null)
+  const [headRoll, setHeadRoll] = useState<number | null>(null)
 
   // Calibration state (capture rest/horizontal/full) to map raw angles to normalized 0-100
   const [calibDown, setCalibDown] = useState<number | null>(null)
@@ -74,6 +104,7 @@ export function AIExerciseSession({ exerciseType, onComplete }: AIExerciseSessio
   const VISIBILITY_THRESHOLD = 0.6
   const MIN_CYCLE_FRAMES = 6
   const DOWN_THRESHOLD = 35
+  const WRIST_DOWN_THRESHOLD = 8
 
   // Adjustable controls (UI)
   const [successRatio, setSuccessRatio] = useState(DEFAULT_SUCCESS_RATIO)
@@ -191,24 +222,30 @@ export function AIExerciseSession({ exerciseType, onComplete }: AIExerciseSessio
       return
     }
 
-    const angles = mediaPipeService.calculateAngles(results.poseLandmarks)
+    const angles = mediaPipeService.calculateAngles(results.poseLandmarks, results.faceLandmarks, results.handLandmarks)
+
+    setHeadYaw(typeof angles.headYaw === 'number' ? angles.headYaw : null)
+    setHeadPitch(typeof angles.headPitch === 'number' ? angles.headPitch : null)
+    setHeadRoll(typeof angles.headRoll === 'number' ? angles.headRoll : null)
 
     // Debug log key values
     const leftDbg = angles.leftShoulder ?? 0
     const rightDbg = angles.rightShoulder ?? 0
     const shoulderDbg = Math.max(leftDbg, rightDbg)
+    const headYawDbg = angles.headYaw ?? null
     console.debug('Pose Debug', {
       landmarksCount: results.poseLandmarks.length,
       leftShoulder: leftDbg,
       rightShoulder: rightDbg,
       shoulderAngle: shoulderDbg,
+      headYaw: headYawDbg,
       exerciseType,
       sessionId,
       usingMock
     })
 
     // Custom robust logic for shoulder raises with success/failed attempts
-    if (exerciseType === 'shoulder_raise') {
+    if (exerciseType === 'shoulder_raise' || exerciseType === 'shoulder_flexion' || exerciseType === 'shoulder_abduction') {
       // check visibility for left/right sets of landmarks
       const lm = results.poseLandmarks
       const leftIndices = [11, 13, 23] // shoulder, elbow, hip
@@ -343,7 +380,7 @@ export function AIExerciseSession({ exerciseType, onComplete }: AIExerciseSessio
 
         // Send frame data after counting
         try {
-          const frameData = { angles, stage: 'down', rep_count: newSuccesses, timestamp: Date.now() / 1000 }
+          const frameData = { angles, stage: 'down', rep_count: newSuccesses, timestamp: Date.now() / 1000, side: chosenSide }
           const response = await apiClient.submitFrame(sessionId, frameData)
           if (response && response.feedback) {
             const fb = normalizeFeedback(response.feedback)
@@ -357,11 +394,102 @@ export function AIExerciseSession({ exerciseType, onComplete }: AIExerciseSessio
 
       // Send lightweight frame updates without rep increment
       try {
-        const frameData = { angles, stage: exerciseStage, rep_count: currentReps, timestamp: Date.now() / 1000 }
+        const frameData = { angles, stage: exerciseStage, rep_count: currentReps, timestamp: Date.now() / 1000, side: chosenSide }
         await apiClient.submitFrame(sessionId, frameData)
       } catch (error) {
         // Do not spam console for transient network issues during streaming
       }
+      return
+    }
+
+    // Custom logic for wrist flexion/extension using signed wrist angle
+    if (exerciseType === 'wrist_flexion' || exerciseType === 'wrist_extension') {
+      const lm = results.poseLandmarks
+      const leftIdx = [13, 15, 19]
+      const rightIdx = [14, 16, 20]
+      const visAvg = (idxs: number[]) => idxs.reduce((s, i) => s + (lm[i]?.visibility ?? 0), 0) / idxs.length
+      const leftAvg = visAvg(leftIdx)
+      const rightAvg = visAvg(rightIdx)
+      const autoSide = leftAvg >= rightAvg ? 'left' : 'right'
+      const chosenSide = targetSide === 'auto' ? autoSide : targetSide
+      setChosenSideState(chosenSide)
+
+      const signed = chosenSide === 'left' ? (angles.leftWristSigned ?? 0) : (angles.rightWristSigned ?? 0)
+      const bendAbs = Math.abs(signed)
+
+      angleBufferRef.current = [...angleBufferRef.current.slice(-60), bendAbs]
+      const normalizedCurrent = Math.round(Math.max(0, Math.min(100, (bendAbs / 90) * 100)))
+      setCurrentAnglePercent(normalizedCurrent)
+
+      const directionOk = exerciseType === 'wrist_flexion' ? (signed <= -15) : (signed >= 15)
+
+      let stage = 'transition'
+      if (directionOk && bendAbs >= SUCCESS_THRESHOLD) stage = 'up'
+      else if (bendAbs <= 8) stage = 'down'
+      setExerciseStage(stage)
+
+      if (stage === 'up') {
+        if (!holdStartRef.current) holdStartRef.current = Date.now()
+        const heldMs = Date.now() - (holdStartRef.current || Date.now())
+        if (heldMs >= Math.round(holdSeconds * 1000)) reachedHoldRef.current = true
+      } else {
+        holdStartRef.current = null
+        reachedHoldRef.current = false
+      }
+
+      if (phaseRef.current === 'down' && stage === 'up') {
+        phaseRef.current = 'up'
+        cycleFrameCountRef.current = 0
+      }
+
+      if (phaseRef.current === 'up' && stage === 'down') {
+        const peakAngle = Math.round(Math.max(...angleBufferRef.current))
+        const inRange = peakAngle >= successMinDeg && peakAngle <= successMaxDeg
+        const success = inRange && directionOk
+        perRepPeaksRef.current = [...perRepPeaksRef.current, peakAngle]
+        setPerRepPeaks([...perRepPeaksRef.current])
+        setRepToast(success ? `Good rep — ${peakAngle}°` : `Failed rep — ${peakAngle}°`)
+
+        let newSuccesses = currentRepsRef.current
+        let newFails = failedRepsRef.current
+        if (success) {
+          newSuccesses = currentRepsRef.current + 1
+          setCurrentReps(newSuccesses)
+        } else {
+          newFails = failedRepsRef.current + 1
+          setFailedReps(newFails)
+        }
+
+        const angleAccuracy = computeAngleBasedAccuracy(perRepPeaksRef.current)
+        setAngleAccuracyState(angleAccuracy)
+        const totalAttempts = perRepPeaksRef.current.length
+        const successCount = newSuccesses
+        const ratioAccuracy = totalAttempts > 0 ? Math.round((successCount / totalAttempts) * 100) : 0
+        setAccuracy(ratioAccuracy)
+
+        try {
+          const frameData = { angles, stage: 'down', rep_count: newSuccesses, timestamp: Date.now() / 1000, side: chosenSide }
+          const response = await apiClient.submitFrame(sessionId, frameData)
+          if (response && response.feedback) {
+            const fb = normalizeFeedback(response.feedback)
+            setAiFeedback(prev => [...prev.slice(-2), fb])
+          }
+        } catch (error) {
+          console.error('Error submitting frame:', error)
+        }
+
+        maxAngleRef.current = 0
+        holdStartRef.current = null
+        reachedHoldRef.current = false
+        phaseRef.current = 'down'
+        cycleFrameCountRef.current = 0
+        return
+      }
+
+      try {
+        const frameData = { angles, stage: exerciseStage, rep_count: currentReps, timestamp: Date.now() / 1000, side: chosenSide }
+        await apiClient.submitFrame(sessionId, frameData)
+      } catch {}
       return
     }
 
@@ -540,10 +668,11 @@ export function AIExerciseSession({ exerciseType, onComplete }: AIExerciseSessio
 
         {/* Webcam Feed */}
         <div className="relative">
-          <video 
-            ref={webcamRef} 
-            autoPlay 
-            muted 
+          <video
+            ref={webcamRef}
+            autoPlay
+            muted
+            playsInline
             className="w-full h-96 object-cover rounded-lg bg-muted"
             style={{ minHeight: '480px' }}
           />
@@ -603,6 +732,11 @@ export function AIExerciseSession({ exerciseType, onComplete }: AIExerciseSessio
               <div className="bg-black/70 text-white px-2 py-1 rounded text-sm">
                 Angle: {currentAnglePercent}%
               </div>
+              {headYaw !== null && headPitch !== null && headRoll !== null && (
+                <div className="bg-black/70 text-white px-2 py-1 rounded text-sm">
+                  Head Y/P/R: {Math.round(headYaw)}° / {Math.round(headPitch)}° / {Math.round(headRoll)}°
+                </div>
+              )}
             </div>
           )}
 

@@ -27,8 +27,9 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { apiClient } from "@/lib/api"
-import { AIExerciseSession } from "@/components/ai-exercise-session"
+
 import type { Doctor } from "@/lib/doctor-assignment"
+
 
 interface MedicalEntry {
   id: string
@@ -98,7 +99,7 @@ export default function PatientDashboard() {
   const [medicalHistory, setMedicalHistory] = useState<MedicalEntry[]>([])
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([])
   const [progressData, setProgressData] = useState<any[]>([])
-  const [showExerciseSession, setShowExerciseSession] = useState(false)
+
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
   const { user, logout } = useAuth()
@@ -134,11 +135,9 @@ export default function PatientDashboard() {
       try {
         setIsLoading(true)
         
-        // Load real progress data from API
         const progress = await apiClient.getMyProgress(30)
         setProgressData(progress)
         
-        // Set mock data for now (replace with real API calls)
         setMedicalHistory(MOCK_MEDICAL_HISTORY)
         setPrescriptions(MOCK_PRESCRIPTIONS)
         setHealthSuggestions([
@@ -236,31 +235,6 @@ export default function PatientDashboard() {
                   </CardHeader>
                   <CardContent>
                     <DoctorCard doctor={assignedDoctor} />
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* AI Exercise Session */}
-              {showExerciseSession ? (
-                <AIExerciseSession
-                  exerciseType="shoulder_raise"
-                  onComplete={(sessionData) => {
-                    console.log('Session completed:', sessionData)
-                    setShowExerciseSession(false)
-                    // Refresh progress data
-                    apiClient.getMyProgress(30).then(setProgressData)
-                  }}
-                />
-              ) : (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Start AI Exercise Session</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Button onClick={() => setShowExerciseSession(true)}>
-                      <Play className="h-4 w-4 mr-2" />
-                      Start Exercise with AI Feedback
-                    </Button>
                   </CardContent>
                 </Card>
               )}

@@ -1,6 +1,6 @@
 from app.core.database import supabase, supabase_admin
 from app.models.user import UserSignup, PatientProfile
-from app.models.session import SessionCreate, FrameData, ExerciseType
+from app.models.session import SessionCreate, FrameData
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta
 import uuid
@@ -35,7 +35,7 @@ class DatabaseService:
         session = {
             "id": str(uuid.uuid4()),
             "user_id": user_id,
-            "exercise_type": session_data.exercise_type.value,
+            "exercise_type": session_data.exercise_type,
             "start_time": datetime.utcnow().isoformat(),
             "total_reps": 0,
             "avg_score": 0.0
@@ -52,6 +52,7 @@ class DatabaseService:
             "stage": frame_data.stage,
             "rep_count": frame_data.rep_count,
             "timestamp": frame_data.timestamp,
+            "side": getattr(frame_data, 'side', None),
             "created_at": datetime.utcnow().isoformat()
         }
         

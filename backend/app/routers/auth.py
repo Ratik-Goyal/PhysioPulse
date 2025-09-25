@@ -8,6 +8,8 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 @router.post("/signup", response_model=dict)
 async def signup(user_data: UserSignup):
     """Register new user with Supabase Auth"""
+    if not supabase_admin:
+        raise HTTPException(status_code=503, detail="Backend not configured: Supabase credentials are missing")
     try:
         # Create user in Supabase Auth using admin client
         auth_response = supabase_admin.auth.admin.create_user({
@@ -19,7 +21,7 @@ async def signup(user_data: UserSignup):
                 "full_name": user_data.full_name
             }
         })
-        
+
         if auth_response.user:
             # Insert user profile using admin client to bypass RLS
             profile_data = {
@@ -28,9 +30,9 @@ async def signup(user_data: UserSignup):
                 "role": user_data.role.value,
                 "full_name": user_data.full_name
             }
-            
+
             supabase_admin.table("users").insert(profile_data).execute()
-            
+
             return {
                 "message": "User created successfully",
                 "user_id": auth_response.user.id,
@@ -39,7 +41,7 @@ async def signup(user_data: UserSignup):
             }
         else:
             raise HTTPException(status_code=400, detail="Failed to create user")
-            
+
     except Exception as e:
         print(f"Signup error: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Registration failed: {str(e)}")
@@ -47,18 +49,20 @@ async def signup(user_data: UserSignup):
 @router.post("/login", response_model=dict)
 async def login(credentials: UserLogin):
     """Login user and return JWT token"""
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Backend not configured: Supabase credentials are missing")
     try:
         auth_response = supabase.auth.sign_in_with_password({
             "email": credentials.email,
             "password": credentials.password
         })
-        
+
         if auth_response.user and auth_response.session:
             # Get user role from database
             user_profile = supabase.table("users").select("role, full_name").eq("id", auth_response.user.id).execute()
             role = user_profile.data[0]["role"] if user_profile.data else "patient"
             full_name = user_profile.data[0]["full_name"] if user_profile.data else auth_response.user.email.split('@')[0]
-            
+
             return {
                 "access_token": auth_response.session.access_token,
                 "token_type": "bearer",
@@ -69,13 +73,15 @@ async def login(credentials: UserLogin):
             }
         else:
             raise HTTPException(status_code=401, detail="Invalid credentials")
-            
+
     except Exception as e:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
 @router.post("/logout")
 async def logout():
     """Logout user"""
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Backend not configured: Supabase credentials are missing")
     try:
         supabase.auth.sign_out()
         return {"message": "Logged out successfully"}

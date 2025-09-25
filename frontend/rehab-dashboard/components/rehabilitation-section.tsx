@@ -42,51 +42,83 @@ interface RehabProgress {
 
 const REHAB_EXERCISES: Exercise[] = [
   {
-    id: "neck-stretch",
-    name: "Gentle Neck Stretches",
-    description: "Reduce tension and improve neck mobility",
-    duration: 300, // 5 minutes
+    id: "neck_flexion",
+    name: "Neck Flexion",
+    description: "Forward neck movement exercise",
+    duration: 180,
     difficulty: "beginner",
-    targetArea: "Neck & Shoulders",
-    videoUrl: "/neck-stretch-exercise-demonstration.jpg",
+    targetArea: "Neck",
+    videoUrl: "/placeholder.svg",
     instructions: [
-      "Sit up straight with shoulders relaxed",
-      "Slowly tilt your head to the right",
-      "Hold for 15-30 seconds",
-      "Return to center and repeat on left side",
-      "Perform 3-5 repetitions each side",
+      "Sit up straight",
+      "Slowly lower chin to chest",
+      "Hold for 5 seconds",
+      "Return to neutral position",
+      "Repeat 10 times",
     ],
   },
   {
-    id: "shoulder-rolls",
-    name: "Shoulder Blade Squeezes",
-    description: "Strengthen upper back and improve posture",
+    id: "shoulder_flexion",
+    name: "Shoulder - Arm Front",
+    description: "Forward arm raise exercise",
     duration: 240,
     difficulty: "beginner",
-    targetArea: "Shoulders & Upper Back",
-    videoUrl: "/shoulder-blade-squeeze-exercise.jpg",
+    targetArea: "Shoulder",
+    videoUrl: "/placeholder.svg",
     instructions: [
-      "Stand or sit with arms at your sides",
-      "Squeeze shoulder blades together",
-      "Hold for 5 seconds",
-      "Relax and repeat",
-      "Perform 10-15 repetitions",
+      "Stand with arms at sides",
+      "Raise arm forward to shoulder height",
+      "Hold for 3 seconds",
+      "Lower slowly",
+      "Repeat 10-15 times",
     ],
   },
   {
-    id: "back-extension",
-    name: "Gentle Back Extensions",
-    description: "Improve spinal mobility and reduce stiffness",
-    duration: 360,
-    difficulty: "intermediate",
-    targetArea: "Lower Back",
-    videoUrl: "/back-extension-exercise-therapy.jpg",
+    id: "shoulder_abduction",
+    name: "Shoulder - Arm Away",
+    description: "Side arm raise exercise",
+    duration: 240,
+    difficulty: "beginner",
+    targetArea: "Shoulder",
+    videoUrl: "/placeholder.svg",
     instructions: [
-      "Lie face down on a mat",
-      "Place hands under shoulders",
-      "Gently push up, extending your back",
-      "Hold for 10 seconds",
-      "Lower down slowly and repeat 8-10 times",
+      "Stand with arms at sides",
+      "Raise arm out to the side",
+      "Hold for 3 seconds",
+      "Lower slowly",
+      "Repeat 10-15 times",
+    ],
+  },
+  {
+    id: "shoulder_raise",
+    name: "Shoulder - Arm Overhead",
+    description: "Overhead arm raise exercise",
+    duration: 240,
+    difficulty: "intermediate",
+    targetArea: "Shoulder",
+    videoUrl: "/placeholder.svg",
+    instructions: [
+      "Stand with arms at sides",
+      "Raise arm overhead",
+      "Hold for 3 seconds",
+      "Lower slowly",
+      "Repeat 8-12 times",
+    ],
+  },
+  {
+    id: "elbow_flexion",
+    name: "Elbow Flexion",
+    description: "Elbow bending exercise",
+    duration: 180,
+    difficulty: "beginner",
+    targetArea: "Elbow",
+    videoUrl: "/placeholder.svg",
+    instructions: [
+      "Stand with arm at side",
+      "Bend elbow bringing hand to shoulder",
+      "Hold for 2 seconds",
+      "Lower slowly",
+      "Repeat 10-15 times",
     ],
   },
 ]
@@ -99,21 +131,20 @@ export function RehabilitationSection({ patientCondition }: RehabilitationSectio
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [webcamEnabled, setWebcamEnabled] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
+  const [activeTab, setActiveTab] = useState("exercises")
   const [rehabProgress, setRehabProgress] = useState<RehabProgress[]>([])
   const [postureFeedback, setPostureFeedback] = useState<string[]>([])
   const [exerciseAccuracy, setExerciseAccuracy] = useState(0)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const webcamRef = useRef<HTMLVideoElement>(null)
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
   // Mock progress data
   useEffect(() => {
     const mockProgress: RehabProgress[] = REHAB_EXERCISES.map((exercise) => ({
       exerciseId: exercise.id,
-      completedSessions: Math.floor(Math.random() * 10) + 5,
-      totalSessions: 20,
+      completedSessions: Math.floor(Math.random() * 5) + 2,
+      totalSessions: 7,
       lastCompleted: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
       streak: Math.floor(Math.random() * 7) + 1,
       accuracy: Math.floor(Math.random() * 30) + 70,
@@ -165,35 +196,18 @@ export function RehabilitationSection({ patientCondition }: RehabilitationSectio
 
   const startExercise = useCallback((exercise: Exercise) => {
     setSelectedExercise(exercise)
-    setCurrentTime(0)
     setIsPlaying(true)
     setExerciseAccuracy(0)
-
-    intervalRef.current = setInterval(() => {
-      setCurrentTime((prev) => {
-        if (prev >= exercise.duration) {
-          setIsPlaying(false)
-          return exercise.duration
-        }
-        return prev + 1
-      })
-    }, 1000)
+    setActiveTab("practice")
   }, [])
 
   const pauseExercise = useCallback(() => {
     setIsPlaying(false)
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current)
-    }
   }, [])
 
   const resetExercise = useCallback(() => {
     setIsPlaying(false)
-    setCurrentTime(0)
     setExerciseAccuracy(0)
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current)
-    }
   }, [])
 
   const completeExercise = useCallback(() => {
@@ -216,11 +230,7 @@ export function RehabilitationSection({ patientCondition }: RehabilitationSectio
     }
   }, [selectedExercise, exerciseAccuracy, resetExercise])
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, "0")}`
-  }
+
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
@@ -248,7 +258,7 @@ export function RehabilitationSection({ patientCondition }: RehabilitationSectio
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="exercises" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="exercises">Exercises</TabsTrigger>
             <TabsTrigger value="practice">Practice</TabsTrigger>
@@ -274,7 +284,6 @@ export function RehabilitationSection({ patientCondition }: RehabilitationSectio
                         </div>
                         <p className="text-sm text-muted-foreground mb-2">{exercise.description}</p>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span>⏱ {formatTime(exercise.duration)}</span>
                           <span>🎯 {exercise.targetArea}</span>
                           {progress && (
                             <span>
@@ -283,7 +292,10 @@ export function RehabilitationSection({ patientCondition }: RehabilitationSectio
                           )}
                         </div>
                       </div>
-                      <Button onClick={() => startExercise(exercise)}>
+                      <Button onClick={() => {
+                        setSelectedExercise(exercise)
+                        startExercise(exercise)
+                      }}>
                         <Play className="h-4 w-4 mr-2" />
                         Start
                       </Button>
@@ -302,76 +314,64 @@ export function RehabilitationSection({ patientCondition }: RehabilitationSectio
                   <div className="flex items-center gap-2">
                     <Button variant="outline" size="sm" onClick={webcamEnabled ? stopWebcam : startWebcam}>
                       {webcamEnabled ? <CameraOff className="h-4 w-4" /> : <Camera className="h-4 w-4" />}
-                      {webcamEnabled ? "Stop Camera" : "Enable Camera"}
+                      {webcamEnabled ? "Stop Camera" : "Start Camera"}
+                    </Button>
+                    <Button size="sm" onClick={isPlaying ? pauseExercise : () => startExercise(selectedExercise)}>
+                      {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                      {isPlaying ? "Pause" : "Start Session"}
                     </Button>
                   </div>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-4">
-                  {/* Exercise Video */}
-                  <div className="space-y-2">
-                    <img
-                      src={selectedExercise.videoUrl || "/placeholder.svg"}
-                      alt="Exercise demonstration"
-                      className="w-full h-48 object-cover rounded-lg"
-                    />
-                    <div className="flex items-center gap-2">
-                      <Button size="sm" onClick={isPlaying ? pauseExercise : () => startExercise(selectedExercise)}>
-                        {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={resetExercise}>
-                        <RotateCcw className="h-4 w-4" />
-                      </Button>
-                      <div className="flex-1">
-                        <Progress value={(currentTime / selectedExercise.duration) * 100} />
+                {/* Webcam Feed with AI Analysis */}
+                <div className="relative">
+                  <video ref={webcamRef} autoPlay muted className="w-full h-96 object-cover rounded-lg bg-muted" />
+                  {!webcamEnabled && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-muted rounded-lg">
+                      <div className="text-center">
+                        <Camera className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">Start camera for AI exercise analysis</p>
                       </div>
-                      <span className="text-sm font-mono">
-                        {formatTime(currentTime)} / {formatTime(selectedExercise.duration)}
-                      </span>
                     </div>
-                  </div>
-
-                  {/* Webcam Feed */}
-                  <div className="space-y-2">
-                    <div className="relative">
-                      <video ref={webcamRef} autoPlay muted className="w-full h-48 object-cover rounded-lg bg-muted" />
-                      {!webcamEnabled && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-muted rounded-lg">
-                          <div className="text-center">
-                            <Camera className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                            <p className="text-sm text-muted-foreground">Enable camera for posture analysis</p>
-                          </div>
-                        </div>
-                      )}
-                      {webcamEnabled && exerciseAccuracy > 0 && (
-                        <div className="absolute top-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-sm">
+                  )}
+                  {webcamEnabled && (
+                    <div className="absolute top-2 right-2 space-y-1">
+                      <div className="bg-black/70 text-white px-2 py-1 rounded text-sm">
+                        Exercise: {selectedExercise.name}
+                      </div>
+                      {exerciseAccuracy > 0 && (
+                        <div className="bg-black/70 text-white px-2 py-1 rounded text-sm">
                           Accuracy: {Math.round(exerciseAccuracy)}%
                         </div>
                       )}
                     </div>
-
-                    {/* Real-time Feedback */}
-                    {postureFeedback.length > 0 && (
-                      <div className="space-y-1">
-                        <h4 className="text-sm font-medium">Real-time Feedback:</h4>
-                        {postureFeedback.map((feedback, index) => (
-                          <div key={index} className="flex items-center gap-2 text-sm">
-                            {feedback.startsWith("✓") ? (
-                              <CheckCircle className="h-3 w-3 text-green-500" />
-                            ) : (
-                              <AlertTriangle className="h-3 w-3 text-yellow-500" />
-                            )}
-                            <span>{feedback.substring(2)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
 
-                {/* Instructions */}
-                <div className="space-y-2">
-                  <h4 className="font-medium">Instructions:</h4>
+
+
+                {/* Real-time AI Feedback */}
+                {postureFeedback.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium">AI Feedback:</h4>
+                    <div className="space-y-1">
+                      {postureFeedback.map((feedback, index) => (
+                        <div key={index} className="flex items-center gap-2 text-sm">
+                          {feedback.startsWith("✓") ? (
+                            <CheckCircle className="h-3 w-3 text-green-500" />
+                          ) : (
+                            <AlertTriangle className="h-3 w-3 text-yellow-500" />
+                          )}
+                          <span>{feedback.substring(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Exercise Instructions */}
+                <div className="bg-muted/50 p-4 rounded-lg">
+                  <h4 className="font-medium mb-2">Instructions:</h4>
                   <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground">
                     {selectedExercise.instructions.map((instruction, index) => (
                       <li key={index}>{instruction}</li>
@@ -379,19 +379,19 @@ export function RehabilitationSection({ patientCondition }: RehabilitationSectio
                   </ol>
                 </div>
 
-                {/* Complete Exercise */}
-                {currentTime >= selectedExercise.duration && (
-                  <div className="text-center space-y-2">
-                    <CheckCircle className="h-8 w-8 text-green-500 mx-auto" />
-                    <p className="font-medium">Exercise Complete!</p>
-                    <Button onClick={completeExercise}>Mark as Completed</Button>
+                {/* Manual Session Complete */}
+                {isPlaying && (
+                  <div className="text-center space-y-2 p-4 bg-blue-50 rounded-lg">
+                    <Button onClick={completeExercise} className="bg-blue-600 hover:bg-blue-700">
+                      Complete Session
+                    </Button>
                   </div>
                 )}
               </div>
             ) : (
               <div className="text-center py-8">
                 <Target className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-muted-foreground">Select an exercise from the Exercises tab to start practicing</p>
+                <p className="text-muted-foreground">Select an exercise from the Exercises tab to start AI session</p>
               </div>
             )}
           </TabsContent>

@@ -9,6 +9,8 @@ from typing import Optional
 security = HTTPBearer()
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Backend not configured: Supabase credentials are missing")
     try:
         # Verify with Supabase
         user = supabase.auth.get_user(credentials.credentials)
@@ -23,6 +25,8 @@ def get_current_user(user_data: dict = Depends(verify_token)) -> dict:
 
 def require_role(required_role: UserRole):
     def role_checker(user: dict = Depends(get_current_user)) -> dict:
+        if not supabase:
+            raise HTTPException(status_code=503, detail="Backend not configured: Supabase credentials are missing")
         # Get user role from database
         result = supabase.table("users").select("role").eq("id", user.id).execute()
         if not result.data or result.data[0]["role"] != required_role.value:

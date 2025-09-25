@@ -26,19 +26,23 @@ class ApiClient {
     }
   }
 
+  private isAuthEndpoint(endpoint: string) {
+    return endpoint.startsWith('/auth/login') || endpoint.startsWith('/auth/signup') || endpoint.startsWith('/auth/logout')
+  }
+
   private async request(endpoint: string, options: RequestInit = {}) {
     const url = `${this.baseURL}${endpoint}`
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
       ...(options.headers || {}),
     }
 
     const token = this.getToken()
-    if (token) {
+    if (token && !this.isAuthEndpoint(endpoint)) {
       headers.Authorization = `Bearer ${token}`
     }
 
-    // Retry fetch on network errors (e.g. "Failed to fetch")
     const maxRetries = 3
     let attempt = 0
     let response: Response | null = null
@@ -55,7 +59,6 @@ class ApiClient {
         if (attempt >= maxRetries) {
           throw new Error(`Network Error: Failed to reach ${url}. Please ensure the backend server is running and reachable.`)
         }
-        // exponential backoff
         const backoff = 200 * Math.pow(2, attempt)
         await new Promise(res => setTimeout(res, backoff))
       }
@@ -65,12 +68,10 @@ class ApiClient {
       throw new Error(`Network Error: No response from ${url}`)
     }
 
-    // Read response body safely once. Some environments can throw if body is already consumed.
     let bodyText = ''
     try {
       bodyText = await response.text()
     } catch (err) {
-      // If reading fails, leave bodyText empty and continue
       console.warn('Failed to read response body text:', err)
       bodyText = ''
     }
@@ -81,9 +82,15 @@ class ApiClient {
           const ct = response.headers.get('content-type') || ''
           if (ct.includes('application/json') && bodyText) return JSON.parse(bodyText)
         } catch (e) { /* ignore parse errors */ }
+        // Provide sensible defaults when body is empty or not JSON
+        if (!bodyText) {
+          if (response.status === 401) return 'Invalid credentials'
+          if (response.status === 503) return 'Backend not configured: Supabase credentials are missing'
+        }
         return bodyText || `Status ${response.status}`
       })()
-      throw new Error(`API Error ${response.status}: ${typeof parsedError === 'string' ? parsedError : JSON.stringify(parsedError)}`)
+      const message = typeof parsedError === 'string' ? parsedError : (parsedError?.detail || JSON.stringify(parsedError))
+      throw new Error(`API Error ${response.status}: ${message}`)
     }
 
     const contentType = response.headers.get('content-type') || ''
@@ -119,8 +126,8 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(credentials),
     })
-    if (response.access_token) {
-      this.setToken(response.access_token)
+    if (response && (response as any).access_token) {
+      this.setToken((response as any).access_token)
     }
     return response
   }
@@ -159,6 +166,29 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(profileData),
     })
+  }
+
+  // Generic HTTP methods for flexibility
+  async get(endpoint: string) {
+    return this.request(endpoint, { method: 'GET' })
+  }
+
+  async post(endpoint: string, data: any) {
+    return this.request(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async put(endpoint: string, data: any) {
+    return this.request(endpoint, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async delete(endpoint: string) {
+    return this.request(endpoint, { method: 'DELETE' })
   }
 }
 

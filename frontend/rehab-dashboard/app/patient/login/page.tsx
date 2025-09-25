@@ -31,8 +31,13 @@ export default function PatientLogin() {
       setTimeout(() => {
         router.push("/patient/dashboard")
       }, 1000)
-    } catch (err) {
-      setError("Invalid email or password")
+    } catch (err: any) {
+      const message = typeof err?.message === 'string' ? err.message : ''
+      if (message.includes('Backend not configured') || message.includes('Network Error')) {
+        setError('Backend unavailable. Please check connection and try again.')
+      } else {
+        setError('Invalid email or password')
+      }
     } finally {
       setIsLoading(false)
     }
