@@ -1,16 +1,27 @@
 # PhysioPulse - AI-Powered Physiotherapy System
 
+<div align="center">
+  <img src="https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js" alt="Next.js">
+  <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI">
+  <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase">
+  <img src="https://img.shields.io/badge/Google_Gemini-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="Google Gemini">
+  <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
+</div>
+
+<br>
+
 An intelligent telerehabilitation platform that combines AI-powered exercise analysis with real-time feedback for physiotherapy patients.
 
-## 🚀 Features
+## ✨ Key Features
 
-- **Real AI Exercise Analysis** - Live pose detection with Google Gemini AI feedback
-- **HD Camera Integration** - 1280x720 resolution for accurate full-body tracking
-- **Smart Patient Matching** - Automated doctor assignment based on symptoms
-- **Comprehensive Health Assessment** - 4-step symptom evaluation
-- **Progress Tracking** - Detailed analytics and session history
-- **Secure Authentication** - Supabase-powered user management
-- **Real-time AI Coaching** - Instant form correction and exercise guidance
+- **🤖 Real AI Exercise Analysis** - Live pose detection with Google Gemini AI feedback
+- **📹 HD Camera Integration** - 1280x720 resolution for accurate full-body tracking
+- **🎯 Smart Patient Matching** - Automated doctor assignment based on symptoms
+- **📋 Comprehensive Health Assessment** - 4-step symptom evaluation
+- **📊 Progress Tracking** - Detailed analytics and session history
+- **🔐 Email Confirmation** - Secure Supabase-powered authentication with email verification
+- **⚡ Real-time AI Coaching** - Instant form correction and exercise guidance
+- **🏥 Multi-Role Support** - Patient, physiotherapist, and admin dashboards
 
 ## 🛠️ Tech Stack
 
@@ -29,17 +40,20 @@ An intelligent telerehabilitation platform that combines AI-powered exercise ana
 
 ## 📋 Prerequisites
 
-- Python 3.8+
-- Node.js 16+
-- Supabase account
-- Google Gemini API key
+Before you begin, ensure you have:
+
+- **Python 3.8+** - [Download here](https://python.org/downloads/)
+- **Node.js 16+** - [Download here](https://nodejs.org/)
+- **Supabase Account** - [Sign up here](https://supabase.com/)
+- **Google Gemini API Key** - [Get API key](https://makersuite.google.com/app/apikey)
+- **Git** - [Download here](https://git-scm.com/downloads)
 
 ## ⚡ Quick Start
 
 ### 1. Clone Repository
 ```bash
-git clone https://github.com/yourusername/physio-pulse.git
-cd physio-pulse
+git clone https://github.com/Ratik-Goyal/PhysioPulse.git
+cd PhysioPulse
 ```
 
 ### 2. Automated Setup
@@ -68,11 +82,11 @@ DISABLE_SSL=true
 
 **Frontend Setup:**
 ```bash
-cd frontend/rehab-dashboard
+cd frontend
 npm install
 ```
 
-Create `frontend/rehab-dashboard/.env.local`:
+Create `frontend/.env.local`:
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
@@ -93,7 +107,7 @@ cd backend
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # Terminal 2 - Frontend
-cd frontend/rehab-dashboard
+cd frontend
 npm run dev
 ```
 
@@ -123,19 +137,20 @@ physio-pulse/
 │   │   └── core/           # Configuration
 │   └── requirements.txt
 ├── frontend/               # Next.js frontend
-│   └── rehab-dashboard/
-│       ├── app/            # Pages and routing
-│       ├── components/     # UI components
-│       ├── lib/            # Utilities
-│       └── contexts/       # State management
+│   ├── app/                # Pages and routing
+│   ├── components/         # UI components
+│   ├── lib/                # Utilities
+│   └── contexts/           # State management
 └── setup.bat              # Automated setup
 ```
 
 ## 🔧 API Endpoints
 
 ### Authentication
-- `POST /auth/signup` - User registration
+- `POST /auth/signup` - User registration with email confirmation
 - `POST /auth/login` - User login
+- `GET /auth/confirm` - Email confirmation
+- `POST /auth/resend-confirmation` - Resend confirmation email
 - `POST /auth/logout` - User logout
 
 ### Exercise Sessions
@@ -163,12 +178,19 @@ physio-pulse/
 - Environment variable protection
 - CORS configuration for secure API access
 
+## 🗄️ Database Setup
+
+1. **Run SQL Setup**: Copy and paste `supabase_setup.sql` into your Supabase SQL Editor
+2. **Configure Email**: Follow instructions in `SUPABASE_EMAIL_SETUP.md`
+3. **Enable Confirmations**: In Supabase Dashboard → Authentication → Settings
+
 ## 🚀 Deployment
 
 The application is designed for easy deployment with:
+- **Frontend**: Vercel, Netlify
+- **Backend**: Railway, Heroku, DigitalOcean
+- **Database**: Supabase (managed PostgreSQL)
 - Docker support (coming soon)
-- Vercel frontend deployment
-- Railway/Heroku backend deployment
 
 ## 🤝 Contributing
 
@@ -186,9 +208,20 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 Built with ❤️ for improving physiotherapy accessibility through AI technology.
 
+## 🐛 Troubleshooting
+
+**Common Issues:**
+- **Backend not starting**: Check if all environment variables are set
+- **Frontend build errors**: Ensure all dependencies are installed with `npm install`
+- **Database connection**: Verify Supabase credentials in `.env`
+- **Email confirmation**: Check Supabase email settings and redirect URLs
+
 ## 📞 Support
 
-For support and questions, please open an issue in the GitHub repository.
+For support and questions:
+- 📧 Open an issue in the [GitHub repository](https://github.com/Ratik-Goyal/PhysioPulse/issues)
+- 📖 Check the [documentation](https://github.com/Ratik-Goyal/PhysioPulse/wiki)
+- 💬 Join our community discussions
 
 ---
 
