@@ -13,9 +13,10 @@ interface User {
 interface AuthContextType {
   user: User | null
   login: (email: string, password: string) => Promise<void>
-  signup: (userData: any) => Promise<void>
+  signup: (userData: any) => Promise<{ confirmation_sent: boolean; email_confirmed: boolean }>
   logout: () => void
   isLoading: boolean
+  resendConfirmation: (email: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -67,9 +68,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('Attempting signup with:', userData)
       const response = await apiClient.signup(userData)
       console.log('Signup response:', response)
-      await login(userData.email, userData.password)
+      
+      // Return confirmation status instead of auto-login
+      return {
+        confirmation_sent: response.confirmation_sent,
+        email_confirmed: response.email_confirmed
+      }
     } catch (error) {
       console.error('Signup failed:', error)
+      throw error
+    }
+  }
+
+  const resendConfirmation = async (email: string) => {
+    try {
+      await apiClient.resendConfirmation(email)
+    } catch (error) {
+      console.error('Resend confirmation failed:', error)
       throw error
     }
   }
@@ -87,7 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, login, signup, logout, isLoading, resendConfirmation }}>
       {children}
     </AuthContext.Provider>
   )

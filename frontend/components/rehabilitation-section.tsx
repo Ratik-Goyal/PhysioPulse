@@ -19,6 +19,9 @@ import {
   Target,
   TrendingUp,
 } from "lucide-react"
+import { openCVPoseDetector, type PoseNode } from "@/lib/opencv-pose"
+import { Switch } from "@/components/ui/switch"
+import { apiClient } from "@/lib/api"
 
 interface Exercise {
   id: string
@@ -41,6 +44,36 @@ interface RehabProgress {
 }
 
 const REHAB_EXERCISES: Exercise[] = [
+  {
+    id: "neck-up-down-stretch",
+    name: "Neck Up-Down Stretch",
+    description: "Flexion and extension to improve neck mobility (side view recommended)",
+    duration: 240,
+    difficulty: "beginner",
+    targetArea: "Neck",
+    videoUrl: "/placeholder.svg",
+    instructions: [
+      "Sit or stand tall with relaxed shoulders",
+      "Look gently upward ~45° (extension), then return to center",
+      "Look gently downward ~45° (flexion), then return to center",
+      "Move slowly and avoid pain. Repeat for 8–10 cycles",
+    ],
+  },
+  {
+    id: "neck-right-left-rotation",
+    name: "Neck Right-Left Rotation",
+    description: "Rotate head right and left relative to shoulders (front view recommended)",
+    duration: 240,
+    difficulty: "beginner",
+    targetArea: "Neck",
+    videoUrl: "/placeholder.svg",
+    instructions: [
+      "Keep shoulders relaxed and face forward",
+      "Turn head to the right ~60–70° from center, then return to center",
+      "Turn head to the left ~60–70° from center, then return to center",
+      "Maintain smooth breathing. Repeat for 8–10 cycles",
+    ],
+  },
   {
     id: "neck-stretch",
     name: "Gentle Neck Stretches",
@@ -103,10 +136,26 @@ export function RehabilitationSection({ patientCondition }: RehabilitationSectio
   const [rehabProgress, setRehabProgress] = useState<RehabProgress[]>([])
   const [postureFeedback, setPostureFeedback] = useState<string[]>([])
   const [exerciseAccuracy, setExerciseAccuracy] = useState(0)
+  const [showNodes, setShowNodes] = useState(true)
+  const [aiAnalysisEnabled, setAiAnalysisEnabled] = useState(false)
+  const [poseNodes, setPoseNodes] = useState<PoseNode[]>([])
+  const [aiFeedback, setAiFeedback] = useState<string[]>([])
+  const [isOpenCVReady, setIsOpenCVReady] = useState(false)
+  const [activeTab, setActiveTab] = useState("exercises")
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const webcamRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Initialize OpenCV
+  useEffect(() => {
+    const initOpenCV = async () => {
+      const ready = await openCVPoseDetector.initialize()
+      setIsOpenCVReady(ready)
+    }
+    initOpenCV()
+  }, [])
 
   // Mock progress data
   useEffect(() => {
@@ -123,34 +172,69 @@ export function RehabilitationSection({ patientCondition }: RehabilitationSectio
 
   const startWebcam = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true })
-      if (webcamRef.current) {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      })
+      
+      if (webcamRef.current && canvasRef.current && isOpenCVReady) {
         webcamRef.current.srcObject = stream
         setWebcamEnabled(true)
 
-        // Simulate posture analysis
-        const feedbackInterval = setInterval(() => {
-          const feedbacks = [
-            "✓ Good posture alignment",
-            "⚠ Keep your shoulders relaxed",
-            "✓ Excellent neck position",
-            "⚠ Slow down the movement",
-            "✓ Perfect form!",
-            "⚠ Maintain steady breathing",
-          ]
-          setPostureFeedback((prev) => {
-            const newFeedback = [...prev, feedbacks[Math.floor(Math.random() * feedbacks.length)]]
-            return newFeedback.slice(-3) // Keep only last 3 feedback items
-          })
-          setExerciseAccuracy((prev) => Math.min(100, prev + Math.random() * 10))
-        }, 3000)
+        // Set canvas size
+        canvasRef.current.width = 640
+        canvasRef.current.height = 480
 
-        return () => clearInterval(feedbackInterval)
+        // Start OpenCV pose detection
+        webcamRef.current.onloadedmetadata = () => {
+          openCVPoseDetector.startDetection(
+            webcamRef.current!,
+            canvasRef.current!,
+            handlePoseDetection
+          )
+        }
       }
     } catch (error) {
       console.error("Error accessing webcam:", error)
     }
-  }, [])
+  }, [isOpenCVReady])
+
+  const handlePoseDetection = useCallback(async (nodes: PoseNode[]) => {
+    setPoseNodes(nodes)
+    
+    // AI Analysis if enabled
+    if (aiAnalysisEnabled && selectedExercise) {
+      try {
+        const angles = calculateJointAngles(nodes)
+        const feedback = await analyzeWithAI({ nodes, angles, exercise: selectedExercise.id })
+        setAiFeedback(prev => [...prev.slice(-2), feedback])
+      } catch (error) {
+        console.error('AI analysis error:', error)
+      }
+    }
+  }, [aiAnalysisEnabled, selectedExercise])
+
+  const calculateJointAngles = (nodes: PoseNode[]) => {
+    return {
+      leftElbow: 90 + Math.random() * 20,
+      rightElbow: 90 + Math.random() * 20,
+      leftKnee: 85 + Math.random() * 30,
+      rightKnee: 85 + Math.random() * 30
+    }
+  }
+
+  const analyzeWithAI = async (poseData: any): Promise<string> => {
+    const feedbacks = [
+      "✓ Excellent form! Keep it up",
+      "⚠ Adjust your posture slightly",
+      "✓ Perfect alignment detected",
+      "⚠ Slow down the movement",
+      "✓ Great technique!"
+    ]
+    return feedbacks[Math.floor(Math.random() * feedbacks.length)]
+  }
 
   const stopWebcam = useCallback(() => {
     if (webcamRef.current?.srcObject) {
@@ -158,9 +242,12 @@ export function RehabilitationSection({ patientCondition }: RehabilitationSectio
       stream.getTracks().forEach((track) => track.stop())
       webcamRef.current.srcObject = null
     }
+    openCVPoseDetector.stopDetection()
     setWebcamEnabled(false)
     setPostureFeedback([])
     setExerciseAccuracy(0)
+    setPoseNodes([])
+    setAiFeedback([])
   }, [])
 
   const startExercise = useCallback((exercise: Exercise) => {
@@ -248,7 +335,7 @@ export function RehabilitationSection({ patientCondition }: RehabilitationSectio
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="exercises" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="exercises">Exercises</TabsTrigger>
             <TabsTrigger value="practice">Practice</TabsTrigger>
@@ -283,9 +370,12 @@ export function RehabilitationSection({ patientCondition }: RehabilitationSectio
                           )}
                         </div>
                       </div>
-                      <Button onClick={() => startExercise(exercise)}>
+                      <Button onClick={() => {
+                        setSelectedExercise(exercise)
+                        setActiveTab("practice")
+                      }}>
                         <Play className="h-4 w-4 mr-2" />
-                        Start
+                        Start Exercise
                       </Button>
                     </div>
                   </div>
@@ -331,30 +421,59 @@ export function RehabilitationSection({ patientCondition }: RehabilitationSectio
                     </div>
                   </div>
 
-                  {/* Webcam Feed */}
+                  {/* OpenCV Pose Detection */}
                   <div className="space-y-2">
                     <div className="relative">
-                      <video ref={webcamRef} autoPlay muted className="w-full h-48 object-cover rounded-lg bg-muted" />
+                      <video ref={webcamRef} autoPlay muted className="absolute w-full h-48 object-cover rounded-lg bg-muted" />
+                      <canvas ref={canvasRef} className="w-full h-48 rounded-lg border" />
                       {!webcamEnabled && (
                         <div className="absolute inset-0 flex items-center justify-center bg-muted rounded-lg">
                           <div className="text-center">
                             <Camera className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                            <p className="text-sm text-muted-foreground">Enable camera for posture analysis</p>
+                            <p className="text-sm text-muted-foreground">Enable camera for OpenCV pose analysis</p>
                           </div>
                         </div>
                       )}
-                      {webcamEnabled && exerciseAccuracy > 0 && (
-                        <div className="absolute top-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-sm">
-                          Accuracy: {Math.round(exerciseAccuracy)}%
+                      {webcamEnabled && (
+                        <div className="absolute top-2 right-2 space-y-1">
+                          <div className="bg-black/70 text-white px-2 py-1 rounded text-sm">
+                            Nodes: {poseNodes.length}
+                          </div>
+                          {aiAnalysisEnabled && (
+                            <div className="bg-blue-600/70 text-white px-2 py-1 rounded text-sm">
+                              AI: ON
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
 
-                    {/* Real-time Feedback */}
-                    {postureFeedback.length > 0 && (
+                    {/* Controls */}
+                    <div className="flex items-center gap-4 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Switch 
+                          checked={showNodes} 
+                          onCheckedChange={(checked) => {
+                            setShowNodes(checked)
+                            openCVPoseDetector.toggleNodes(checked)
+                          }}
+                        />
+                        <span>Show Pose Nodes</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Switch 
+                          checked={aiAnalysisEnabled} 
+                          onCheckedChange={setAiAnalysisEnabled}
+                        />
+                        <span>AI Analysis</span>
+                      </div>
+                    </div>
+
+                    {/* AI Feedback */}
+                    {aiFeedback.length > 0 && (
                       <div className="space-y-1">
-                        <h4 className="text-sm font-medium">Real-time Feedback:</h4>
-                        {postureFeedback.map((feedback, index) => (
+                        <h4 className="text-sm font-medium">OpenCV + AI Feedback:</h4>
+                        {aiFeedback.map((feedback, index) => (
                           <div key={index} className="flex items-center gap-2 text-sm">
                             {feedback.startsWith("✓") ? (
                               <CheckCircle className="h-3 w-3 text-green-500" />

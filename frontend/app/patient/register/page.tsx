@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
-import { RegistrationSuccess } from "@/components/registration-success"
+import { EmailConfirmation } from "@/components/email-confirmation"
 
 export default function PatientRegister() {
   const [formData, setFormData] = useState({
@@ -29,7 +29,7 @@ export default function PatientRegister() {
   })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
-  const [showSuccess, setShowSuccess] = useState(false)
+  const [showEmailConfirmation, setShowEmailConfirmation] = useState(false)
   const router = useRouter()
   const { signup } = useAuth()
 
@@ -56,8 +56,10 @@ export default function PatientRegister() {
         full_name: `${formData.firstName} ${formData.lastName}`
       }
       
-      await signup(userData)
-      setShowSuccess(true)
+      const result = await signup(userData)
+      if (result.confirmation_sent) {
+        setShowEmailConfirmation(true)
+      }
     } catch (err: any) {
       console.error('Registration error details:', err)
       const errorMessage = err.message || err.toString()
@@ -75,13 +77,8 @@ export default function PatientRegister() {
     }
   }
 
-  if (showSuccess) {
-    return (
-      <RegistrationSuccess 
-        email={formData.email}
-        onContinue={() => router.push("/patient/health-questionnaire")}
-      />
-    )
+  if (showEmailConfirmation) {
+    return <EmailConfirmation email={formData.email} />
   }
 
   return (

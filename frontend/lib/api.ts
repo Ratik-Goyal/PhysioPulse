@@ -130,6 +130,16 @@ class ApiClient {
     this.clearToken()
   }
 
+  async confirmEmail(tokenHash: string, type: string = 'signup') {
+    return this.request(`/auth/confirm?token_hash=${tokenHash}&type=${type}`)
+  }
+
+  async resendConfirmation(email: string) {
+    return this.request(`/auth/resend-confirmation?email=${encodeURIComponent(email)}`, {
+      method: 'POST',
+    })
+  }
+
   // Session endpoints
   async startSession(exerciseType: string) {
     return this.request('/session/start', {

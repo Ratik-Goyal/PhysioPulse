@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Query
 from app.models.user import UserSignup, UserLogin, UserProfile
 from app.core.database import supabase, supabase_admin
 from app.services.database_service import db_service
@@ -7,35 +7,28 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 
 @router.post("/signup", response_model=dict)
 async def signup(user_data: UserSignup):
-    """Register new user with Supabase Auth"""
+    """Register new user with Supabase Auth and send confirmation email"""
     try:
-        # Create user in Supabase Auth using admin client
-        auth_response = supabase_admin.auth.admin.create_user({
+        # Create user in Supabase Auth - this will send confirmation email
+        auth_response = supabase.auth.sign_up({
             "email": user_data.email,
             "password": user_data.password,
-            "email_confirm": True,
-            "user_metadata": {
-                "role": user_data.role.value,
-                "full_name": user_data.full_name
+            "options": {
+                "data": {
+                    "role": user_data.role.value,
+                    "full_name": user_data.full_name
+                },
+                "email_redirect_to": "http://localhost:3000/auth/confirm"
             }
         })
         
         if auth_response.user:
-            # Insert user profile using admin client to bypass RLS
-            profile_data = {
-                "id": auth_response.user.id,
-                "email": user_data.email,
-                "role": user_data.role.value,
-                "full_name": user_data.full_name
-            }
-            
-            supabase_admin.table("users").insert(profile_data).execute()
-            
             return {
-                "message": "User created successfully",
+                "message": "Registration successful! Please check your email to confirm your account.",
                 "user_id": auth_response.user.id,
                 "email": user_data.email,
-                "role": user_data.role.value
+                "confirmation_sent": True,
+                "email_confirmed": auth_response.user.email_confirmed_at is not None
             }
         else:
             raise HTTPException(status_code=400, detail="Failed to create user")
@@ -72,6 +65,48 @@ async def login(credentials: UserLogin):
             
     except Exception as e:
         raise HTTPException(status_code=401, detail="Invalid credentials")
+
+@router.get("/confirm")
+async def confirm_email(token_hash: str = Query(...), type: str = Query("signup")):
+    """Confirm user email with token from URL"""
+    try:
+        auth_response = supabase.auth.verify_otp({
+            "token_hash": token_hash,
+            "type": type
+        })
+        
+        if auth_response.user and auth_response.session:
+            return {
+                "message": "Email confirmed successfully",
+                "user_id": auth_response.user.id,
+                "email": auth_response.user.email,
+                "access_token": auth_response.session.access_token,
+                "confirmed": True
+            }
+        else:
+            raise HTTPException(status_code=400, detail="Invalid confirmation token")
+            
+    except Exception as e:
+        print(f"Email confirmation error: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Email confirmation failed: {str(e)}")
+
+@router.post("/resend-confirmation")
+async def resend_confirmation(email: str = Query(...)):
+    """Resend confirmation email"""
+    try:
+        response = supabase.auth.resend({
+            "type": "signup",
+            "email": email,
+            "options": {
+                "email_redirect_to": "http://localhost:3000/auth/confirm"
+            }
+        })
+        
+        return {"message": "Confirmation email sent successfully"}
+        
+    except Exception as e:
+        print(f"Resend confirmation error: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to resend confirmation: {str(e)}")
 
 @router.post("/logout")
 async def logout():
